@@ -121,7 +121,7 @@ with PdfPages(out_path) as pdf:
             line_spacing = 0.015
             for k, (text, color) in enumerate(footnotes):
                 y = y0 + k * line_spacing
-                fig.patches.append(Rectangle((0.1, y-0.004), 0.01, 0.01, transform=fig.transFigure,
+                fig.patches.append(Rectangle((0.1, y), 0.01, 0.01, transform=fig.transFigure,
                                              color=color, alpha=0.8, zorder=5))
                 fig.text(0.115, y, text, ha="left", va="bottom", fontsize=FOOTNOTE_FONTSIZE)
         plt.tight_layout(rect=[0,0.05,1,1])
