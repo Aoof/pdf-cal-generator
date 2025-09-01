@@ -18,6 +18,9 @@ holiday_colors = {
     "Eid al‑Adha (est.)": "#F5DEB3",
     "Islamic New Year (est.)": "#D8BFD8",
     "Ashura (est.)": "#FFB347",
+        "Friday": "#FFA500",  # Orange
+        "Ramadan": "#AEC6CF",
+        "Eid al‑Fitr": "#E6E6FA",
 }
 
 holidays = {
@@ -31,6 +34,12 @@ holidays = {
     date(2026, 6, 17): ["Islamic New Year (est.)"],
     date(2026, 6, 25): ["Ashura (est.)"],
 }
+
+# Ramadan and Eid date ranges
+ramadan_start = date(2026, 2, 17)
+ramadan_end = date(2026, 3, 19)
+eid_start = date(2026, 3, 20)
+eid_end = date(2026, 3, 22)
 
 PAGE_W_IN, PAGE_H_IN = 11, 8.5
 DPI = 300
@@ -88,9 +97,25 @@ def draw_month(ax, year, month, footnotes):
                 ax.text(x0 + 0.005, y0 + cell_h - 0.005, str(day),
                         ha="left", va="top", fontsize=DAYNUM_FONTSIZE, transform=ax.transAxes)
                 d = date(year, month, day)
+                events = []
+                colors = []
+                # Highlight holidays
                 if d in holidays:
-                    events = holidays[d]
-                    colors = [holiday_colors.get(e, "#{:06x}".format(hash(e) & 0xFFFFFF)) for e in events]
+                    events.extend(holidays[d])
+                    colors.extend([holiday_colors.get(e, "#{:06x}".format(hash(e) & 0xFFFFFF)) for e in holidays[d]])
+                # Highlight Fridays
+                if c == 5:
+                    events.append("Friday")
+                    colors.append(holiday_colors["Friday"])
+                # Highlight Ramadan
+                if ramadan_start <= d <= ramadan_end:
+                    events.append("Ramadan")
+                    colors.append(holiday_colors["Ramadan"])
+                # Highlight Eid al-Fitr
+                if eid_start <= d <= eid_end:
+                    events.append("Eid al‑Fitr")
+                    colors.append(holiday_colors["Eid al‑Fitr"])
+                if colors:
                     if len(colors) == 1:
                         rect = Rectangle((x0, y0), cell_w, cell_h,
                                          transform=ax.transAxes, color=colors[0], alpha=0.5, zorder=-1)
