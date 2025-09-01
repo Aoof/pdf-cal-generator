@@ -127,7 +127,77 @@ def draw_month(ax, year, month, footnotes):
                                              transform=ax.transAxes, color=color, alpha=0.5, zorder=-1)
                             ax.add_patch(rect)
                     for e, color in zip(events, colors):
-                        footnotes.append((f"{day} {month_name}: {e}", color))
+                        # Skip adding Friday to footnotes
+                        if e != "Friday" and d in holidays:
+                            footnotes.append((f"{day} {month_name}: {e}", color))
+
+def consolidate_footnotes(footnotes):
+    """Consolidate duplicate events and create duration format for identical events."""
+    if not footnotes:
+        return []
+    
+    # Dictionary to track events by their name
+    event_dict = {}
+    
+    # Process each footnote
+    for note, color in footnotes:
+        # Parse the footnote to extract day, month, event name
+        parts = note.split(": ")
+        if len(parts) != 2:
+            continue
+            
+        date_part = parts[0]
+        event_name = parts[1]
+        
+        # Skip any Friday entries that might have slipped through
+        if event_name == "Friday":
+            continue
+            
+        # Parse the date part to get day and month
+        date_parts = date_part.split(" ")
+        if len(date_parts) != 2:
+            continue
+            
+        day = int(date_parts[0])
+        month = date_parts[1]
+        
+        # Create key for the event
+        event_key = f"{event_name}:{color}"
+        
+        if event_key not in event_dict:
+            event_dict[event_key] = {
+                'name': event_name,
+                'color': color,
+                'dates': [(day, month)]
+            }
+        else:
+            event_dict[event_key]['dates'].append((day, month))
+    
+    # Create consolidated footnotes
+    consolidated = []
+    for event_data in event_dict.values():
+        if len(event_data['dates']) == 1:
+            # Single day event
+            day, month = event_data['dates'][0]
+            text = f"{day} {month}: {event_data['name']}"
+        else:
+            # Multi-day event, sort by day
+            sorted_dates = sorted(event_data['dates'])
+            if len(set(d[1] for d in sorted_dates)) == 1:  # Same month
+                # Format: "1-5 Jan: Event Name"
+                first_day = sorted_dates[0][0]
+                last_day = sorted_dates[-1][0]
+                month = sorted_dates[0][1]
+                text = f"{first_day}-{last_day} {month}: {event_data['name']}"
+            else:
+                # Format: "28 Jan - 3 Feb: Event Name"
+                first_day, first_month = sorted_dates[0]
+                last_day, last_month = sorted_dates[-1]
+                text = f"{first_day} {first_month} - {last_day} {last_month}: {event_data['name']}"
+        
+        consolidated.append((text, event_data['color']))
+    
+    return consolidated
 
 out_path = "./CalendarOut.pdf"
 with PdfPages(out_path) as pdf:
@@ -140,15 +210,34 @@ with PdfPages(out_path) as pdf:
                 draw_month(axes.flat[j], y, m, footnotes)
             else:
                 axes.flat[j].set_axis_off()
-        if footnotes:
-            # Draw footnotes with color circles
+                
+        # Consolidate footnotes to remove duplicates and create durations
+        consolidated_footnotes = consolidate_footnotes(footnotes)
+        
+        if consolidated_footnotes:
+            # Draw footnotes with color circles in multiple columns, wrapping every 5 footnotes
             y0 = 0.02
             line_spacing = 0.015
-            for k, (text, color) in enumerate(footnotes):
-                y = y0 + k * line_spacing
-                fig.patches.append(Rectangle((0.1, y), 0.01, 0.01, transform=fig.transFigure,
+            max_rows = 5
+            column_width = 0.25  # Width of each footnote column
+            bottom_margin = 0.05
+            
+            for k, (text, color) in enumerate(consolidated_footnotes):
+                column = k // max_rows  # Determine which column this footnote belongs to
+                row = k % max_rows      # Determine the row within the column
+                
+                # Calculate x position based on column
+                x_circle = 0.05 + (column * column_width)
+                x_text = x_circle + 0.015
+                
+                # Calculate y position (same for each column)
+                y = y0 + row * line_spacing
+                
+                # Add the colored rectangle and text
+                fig.patches.append(Rectangle((x_circle, y), 0.01, 0.01, transform=fig.transFigure,
                                              color=color, alpha=0.8, zorder=5))
-                fig.text(0.115, y, text, ha="left", va="bottom", fontsize=FOOTNOTE_FONTSIZE)
-        plt.tight_layout(rect=[0,0.05,1,1])
+                fig.text(x_text, y, text, ha="left", va="bottom", fontsize=FOOTNOTE_FONTSIZE)
+                
+        plt.tight_layout(rect=[0, bottom_margin, 1, 1])
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
